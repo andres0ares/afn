@@ -3,14 +3,14 @@
 #include <string>
 using namespace std;
 
-#define num_estados 10
-#define num_transicoes 10
+#define num_max_estados 10
+#define num_max_transicoes 10
 
 
 class ElementClass {
     public:
         int amountData;
-        string* data = new string [num_estados];
+        string* data = new string [num_max_estados];
 };
 
 class TransicaoClass {
@@ -25,10 +25,14 @@ int error = 1;
 int qtd_transicoes = 0;
 const char *els[4]= {"alfabeto=", "estados=", "inicial=", "finais="};
 ElementClass* elements = new ElementClass [4];
-TransicaoClass* transicoes = new TransicaoClass [num_transicoes];
+TransicaoClass* transicoes = new TransicaoClass [num_max_transicoes];
 string cadeia;
 
-
+//armazena novo estado 
+string* newEstado = new string [num_max_estados];
+int qtd_newEstado = 0;
+string* estado = new string [num_max_estados]; 
+int qtd_estado = 1;
 
 void getDescricao(void) {
 
@@ -70,12 +74,10 @@ void getDescricao(void) {
                     elements[j].data[elements[j].amountData] = line;
                     elements[j].amountData++;
                     works = 0;
-
+                    
                 } 
             }
-
         }
-
     }
 
     if(error != 0){
@@ -122,9 +124,58 @@ int fazParteAlfabeto(void) {
     return 1;
 }
 
+void addNewEstado(string to){
+    //evita duplicidade de estados
+    int exist = 1;
+    for(int i = 0; i < qtd_newEstado; i++){
+        if(newEstado[i] == to)
+            exist = 0
+        ;
+    }
+    if(exist != 0){
+        newEstado[qtd_newEstado] = to;
+        qtd_newEstado++;
+    }
+
+}
+
+void verifyEpsilon(string to){
+    bool test = true;
+    while(test){
+        int count = 0;
+        for(int k = 0; k < qtd_transicoes; k++){
+            if(to == transicoes[k].from && transicoes[k].symbol == "epsilon"){
+                to = transicoes[k].to;
+                addNewEstado(to);
+                cout << "\n via epsilon para " << to;
+                count++;
+            }
+        }
+        if(count == 0){
+            test = false;
+        }
+    }
+}
+
+void updateEstado(void){
+    //limpa array
+    for(int j = 0; j < qtd_estado; j++){
+        estado[j] = "";
+    }
+
+    //atualiza o array estado e limpa o array newEstado
+    for(int j = 0; j < qtd_newEstado; j++){
+        estado[j] = newEstado[j];
+        newEstado[j] = "";
+    }
+
+    //atualiza a quantidade
+    qtd_estado = qtd_newEstado;
+    qtd_newEstado = 0;
+}
+
 
 int main(void) {
-
 
     cout << "\n\n ===== SIMULACAO AUTOMATO FINITO NAO-DETERMINISTICO =====";
 
@@ -159,14 +210,12 @@ int main(void) {
     cout << "\n\n Cadeia inserida -> " << cadeia;    
     cout << "\n\n";
 
-
     // verifica se a cadeia contem um simbolo que nao faz parte do alfabeto
 
     if(fazParteAlfabeto() == 0){
         cout << "\n error: cadeia possui simbolo que nao faz parte do alfabeto. \n";
         return -1;
     }
-
 
     // *********************** simulacao ***************************
 
@@ -175,69 +224,36 @@ int main(void) {
     // elements[2] = estado inicial
     // elements[3] = estados finais
 
-
-    
-    string* estado = new string [elements[1].amountData]; 
-    string* newEstado = new string [elements[1].amountData];
-    int qtd_estado = 1; 
-    int qtd_newEstado = 0;
-
-    estado[0] = elements[1].data[0];
-    
+    cout << "\n ------- inicio -------- ";
+    cout << "\n estado inicial: " << elements[1].data[0];
+    addNewEstado(elements[1].data[0]);
+    verifyEpsilon(elements[1].data[0]);
+    updateEstado(); 
 
     for(int i = 0; i < cadeia.length(); i++){
 
-
         cout << "\n\n ------- Caractere " << cadeia[i];
-        cout << "-------";
-
+        cout << " -------";
         string simbolo(1, cadeia[i]);
-        int count = 0;
 
         //verifica se ha possibilidade de transicao
         for(int j = 0; j < qtd_transicoes; j++) {
 
-
             for(int l=0; l < qtd_estado; l++){
                 
                 //se ha, armazena o novo estado no array newEstado
-                if(estado[l] == transicoes[j].from && (simbolo == transicoes[j].symbol)){
+                if(estado[l] == transicoes[j].from && ((simbolo == transicoes[j].symbol) || transicoes[j].symbol == "epsilon")){
                     cout << "\n de " << estado[l];
                     cout << ", para " << transicoes[j].to;
-
-                    //evita duplicidade de estados
-                    int exist = 1;
-                    for(int k = 0; k < qtd_newEstado; k++){
-                        if(newEstado[k] == transicoes[j].to)
-                            exist = 0
-                        ;
-                    }
-                    if(exist != 0){
-                        newEstado[qtd_newEstado] = transicoes[j].to;
-                        qtd_newEstado++;
-                    }
-
+                 
+                    string to = transicoes[j].to;
+                    addNewEstado(to);
+                    verifyEpsilon(to);
                 }
-            
             }        
-
         }
-
-        //limpa array
-        for(int j = 0; j < qtd_estado; j++){
-            estado[j] = "";
-        }
-
-        //atualiza o array estado e limpa o array newEstado
-        for(int j = 0; j < qtd_newEstado; j++){
-            estado[j] = newEstado[j];
-            newEstado[j] = "";
-        }
-
-        //atualiza a quantidade
-        qtd_estado = qtd_newEstado;
-        qtd_newEstado = 0;
-        
+        //atualiza
+        updateEstado();       
     }
 
     //verifica de possui um estado final no array estado
@@ -250,8 +266,7 @@ int main(void) {
                 ;
                 cout << "\n Aceita no estado: " << estado[i];
                 aceita++;
-            }
-                
+            }             
         }
     }
 
@@ -260,10 +275,7 @@ int main(void) {
     ;
 
     cout << "\n";
-
-
     return -1;
-
     // ******************* fim simulacao ***************************
     
 }
